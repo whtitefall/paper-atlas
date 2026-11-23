@@ -17,12 +17,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from common import Http, assign_ids, write_output, write_index, log  # noqa: E402
-from sources import acl, miniconf, cvf, aaai, ijcai, arxiv  # noqa: E402
+from common import Http, assign_ids, enrich_from_arxiv, write_output, write_index, log  # noqa: E402
+from sources import acl, pmlr, proceedings, virtual, cvf, ecva, aaai, ijcai, arxiv  # noqa: E402
 
 # venue key -> [(module, year), ...]
 REGISTRY: dict[str, list] = {}
-for mod in (miniconf, acl, cvf, aaai, ijcai, arxiv):
+for mod in (acl, pmlr, proceedings, virtual, cvf, ecva, aaai, ijcai, arxiv):
     for venue, years in mod.YEARS.items():
         REGISTRY.setdefault(venue, []).extend((mod, y) for y in years)
 for jobs in REGISTRY.values():
@@ -40,7 +40,12 @@ def run_one(http, mod, venue, year):
     written = []
     for r in results:
         name = r.pop("name", f"{venue}-{year}")
-        papers = assign_ids(r.pop("papers"), prefix=f"{venue}{year}")
+        papers = r.pop("papers")
+        if venue != "arxiv":
+            n_abs, n_ids = enrich_from_arxiv(papers)
+            if n_abs or n_ids:
+                log(f"  arXiv title match: +{n_abs} abstracts, +{n_ids} arXiv ids")
+        papers = assign_ids(papers, prefix=f"{venue}{year}")
         written += write_output(name, papers=papers, **r)
     log(f"  done in {time.time() - t0:.0f}s ({http.requests_made} requests so far)")
     return written

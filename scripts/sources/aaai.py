@@ -7,13 +7,13 @@ student abstracts and demos are skipped).
 import re
 import xml.etree.ElementTree as ET
 
-from common import paper, log
+from common import paper, log, WEEK
 
-YEARS = {"aaai": [2023, 2024, 2025]}
+YEARS = {"aaai": [2023, 2024, 2025, 2026]}
 OAI = "https://ojs.aaai.org/index.php/AAAI/oai"
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/", "dc": "http://purl.org/dc/elements/1.1/",
       "oai_dc": "http://www.openarchives.org/OAI/2.0/oai_dc/"}
-VOLUME = {2023: 37, 2024: 38, 2025: 39}
+VOLUME = {2023: 37, 2024: 38, 2025: 39, 2026: 40}
 
 
 def harvest(http):
@@ -22,7 +22,8 @@ def harvest(http):
     page = 0
     while True:
         page += 1
-        root = ET.fromstring(http.get(OAI, params=params))
+        # the first page is refreshed weekly so new volumes show up; later pages follow its token
+        root = ET.fromstring(http.get(OAI, params=params, max_age=WEEK if page == 1 else None))
         err = root.find("oai:error", NS)
         if err is not None:
             if err.get("code") == "noRecordsMatch":

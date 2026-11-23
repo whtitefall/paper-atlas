@@ -11,6 +11,7 @@ import time
 import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.robotparser import RobotFileParser
 
 import requests
 
@@ -21,7 +22,22 @@ OUT_DIR = ROOT / "data" / "papers"  # raw inputs for build_atlas.py; not publish
 USER_AGENT = "paper-atlas-fetcher (+https://github.com/whtitefall/paper-atlas)"
 DEFAULT_INTERVAL = 1.0          # seconds between requests to the same host
 HOST_INTERVAL = {"export.arxiv.org": 3.0, "arxiv.org": 3.0}
+# URLs allowed despite robots.txt. export.arxiv.org disallows all crawling in robots.txt, but arXiv
+# documents its OAI-PMH endpoint there for bulk metadata harvesting
+# (https://info.arxiv.org/help/oa/index.html), which is exactly what sources/arxiv.py does.
+ROBOTS_EXCEPTIONS = ("https://export.arxiv.org/oai2",)
+
+
+class RobotsDisallowed(RuntimeError):
+    pass
 MAX_FILE_BYTES = 50 * 1024 * 1024
+WEEK = 7 * 24 * 3600
+
+
+def listing_max_age(year: int) -> float | None:
+    """Cache lifetime for a venue-year's listing: a week for this year and later (it may still
+    grow or be published), forever for earlier years."""
+    return WEEK if year >= dt.date.today().year else None
 
 
 def log(*args):
@@ -36,7 +52,52 @@ class Http:
         self.session = requests.Session()
         self.session.headers["User-Agent"] = USER_AGENT
         self._last: dict[str, float] = {}
+        self._robots: dict[str, RobotFileParser | None] = {}
         self.requests_made = 0
+
+    def _robots_for(self, scheme: str, host: str) -> RobotFileParser | None:
+        """Fetch (once per run, cached on disk for a week) and parse a host's robots.txt.
+        None means no usable robots.txt, i.e. everything is allowed."""
+        if host in self._robots:
+            return self._robots[host]
+        url = f"{scheme}://{host}/robots.txt"
+        path = self._cache_path(url, None)
+        text = None
+        if path.exists() and time.time() - path.stat().st_mtime < WEEK:
+            text = path.read_text(encoding="utf-8")
+        else:
+            self._wait(host)
+            try:
+                r = self.session.get(url, timeout=60)
+                self.requests_made += 1
+                # many sites serve robots.txt as text/html, so judge by the body, not the header
+                if r.status_code == 200 and not r.text.lstrip().startswith("<"):
+                    text = r.text
+                elif r.status_code in (401, 403):
+                    text = "User-agent: *\nDisallow: /\n"   # treat as fully disallowed (RFC 9309)
+                else:
+                    text = ""                                # 404 / HTML error page: no rules
+            except requests.RequestException as e:
+                log(f"  ! could not read {url}: {e}; assuming no rules")
+                text = ""
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        rp = None
+        if text.strip():
+            rp = RobotFileParser()
+            rp.parse(text.splitlines())
+            delay = rp.crawl_delay(USER_AGENT)
+            if delay:
+                HOST_INTERVAL[host] = max(float(delay), HOST_INTERVAL.get(host, DEFAULT_INTERVAL))
+        self._robots[host] = rp
+        return rp
+
+    def allowed(self, url: str) -> bool:
+        if url.startswith(ROBOTS_EXCEPTIONS):
+            return True
+        u = urlparse(url)
+        rp = self._robots_for(u.scheme, u.netloc)
+        return rp is None or rp.can_fetch(USER_AGENT, url)
 
     def _cache_path(self, url: str, data: dict | None) -> Path:
         host = urlparse(url).netloc or "local"
@@ -50,12 +111,21 @@ class Http:
             time.sleep(gap - elapsed)
         self._last[host] = time.monotonic()
 
+    def forget(self, url: str, params: dict | None = None):
+        """Drop a cached response, e.g. a listing that turned out to be empty or not final yet."""
+        self._cache_path(url, params).unlink(missing_ok=True)
+
     def get(self, url: str, *, cache: bool = True, params: dict | None = None,
-            ok_404: bool = False, retries: int = 5, timeout: int = 120) -> str | None:
-        """GET `url` and return the body as text. Returns None on 404 when ok_404 is set."""
+            ok_404: bool = False, retries: int = 5, timeout: int = 120,
+            max_age: float | None = None) -> str | None:
+        """GET `url` and return the body as text. Returns None on 404 when ok_404 is set
+        (a 404 is never cached). With `max_age` (seconds), an older cached copy is refetched."""
+        if not self.allowed(url):
+            raise RobotsDisallowed(f"robots.txt disallows {url}")
         path = self._cache_path(url, params)
         if cache and not self.refresh and path.exists():
-            return path.read_text(encoding="utf-8")
+            if max_age is None or time.time() - path.stat().st_mtime < max_age:
+                return path.read_text(encoding="utf-8")
         host = urlparse(url).netloc
         delay = 5.0
         for attempt in range(1, retries + 1):
@@ -77,6 +147,8 @@ class Http:
                 continue
             if r.status_code != 200:
                 raise RuntimeError(f"HTTP {r.status_code} for {r.url}: {r.text[:300]}")
+            if r.url != url and not self.allowed(r.url):   # redirected somewhere disallowed
+                raise RobotsDisallowed(f"robots.txt disallows {r.url} (redirected from {url})")
             r.encoding = r.encoding if r.encoding and r.encoding.lower() != "iso-8859-1" else "utf-8"
             text = r.text
             if cache:
@@ -219,3 +291,81 @@ def write_index():
         entries.append(e)
     (OUT_DIR / "index.json").write_text(json.dumps({"files": entries}, ensure_ascii=False, indent=1), encoding="utf-8")
     return entries
+
+
+# ---------- arXiv title matching ----------
+
+_arxiv_by_title: dict | None = None
+_arxiv_by_id: dict | None = None
+
+
+def _load_arxiv():
+    """Index the month windows cached by sources/arxiv.py by normalised title and by id."""
+    global _arxiv_by_title, _arxiv_by_id
+    if _arxiv_by_title is None:
+        by_title: dict[str, dict] = {}
+        by_id: dict[str, dict] = {}
+        for path in sorted((RAW_DIR / "arxiv-windows").glob("*.json")):
+            for r in json.loads(path.read_text(encoding="utf-8")):
+                by_id[r["id"]] = r                # later windows hold newer metadata
+                k = title_key(r["title"])
+                if len(k) >= 20:                  # skip very short / generic titles
+                    by_title[k] = r
+        _arxiv_by_title, _arxiv_by_id = by_title, by_id
+        if by_id:
+            log(f"  (arXiv index: {len(by_id)} local records for title matching)")
+
+
+def arxiv_lookup(title: str = "", arxiv_id: str | None = None) -> dict | None:
+    """The local arXiv record for a paper, by arXiv id if known, else by exact normalised title."""
+    _load_arxiv()
+    if arxiv_id and arxiv_id in _arxiv_by_id:
+        return _arxiv_by_id[arxiv_id]
+    return _arxiv_by_title.get(title_key(title)) if title else None
+
+
+def fill_from_arxiv(p: dict, r: dict | None) -> bool:
+    """Copy missing fields from arXiv record `r` into paper `p`. True if the abstract was filled."""
+    if not r:
+        return False
+    filled = False
+    if not p["abstract"] and r.get("abstract"):
+        p["abstract"] = clean(r["abstract"]); filled = True
+    if not p["authors"] and r.get("authors"):
+        p["authors"] = [clean(a) for a in r["authors"]]
+    if not p["arxiv_id"]:
+        p["arxiv_id"] = r["id"]
+    p["pdf"] = p["pdf"] or f"https://arxiv.org/pdf/{r['id']}"
+    return filled
+
+
+def enrich_from_arxiv(papers: list[dict]) -> tuple[int, int]:
+    """Fill missing abstracts / authors / arXiv ids of venue papers from the local arXiv harvest.
+    Returns (abstracts filled, arXiv ids filled)."""
+    n_abs = n_ids = 0
+    for p in papers:
+        had_id = bool(p["arxiv_id"])
+        r = arxiv_lookup(p["title"], p["arxiv_id"])
+        if fill_from_arxiv(p, r):
+            n_abs += 1
+        n_ids += bool(r) and not had_id
+    return n_abs, n_ids
+
+
+# ---------- LaTeX (BibTeX) cleanup ----------
+
+_ACCENTS = {"`": "\u0300", "'": "\u0301", "^": "\u0302", '"': "\u0308", "~": "\u0303", "=": "\u0304",
+            ".": "\u0307", "u": "\u0306", "v": "\u030c", "H": "\u030b", "c": "\u0327", "k": "\u0328"}
+_SPECIAL = {"ss": "ß", "o": "ø", "O": "Ø", "l": "ł", "L": "Ł", "aa": "å", "AA": "Å", "ae": "æ", "AE": "Æ",
+            "oe": "œ", "OE": "Œ", "i": "ı", "j": "ȷ"}
+_ACCENT_RE = re.compile(r"""\\([`'^"~=.uvHck])\s*\{?\\?([A-Za-z])\}?""")
+_SPECIAL_RE = re.compile(r"\\(ss|aa|AA|ae|AE|oe|OE|o|O|l|L|i|j)(?![A-Za-z])\s?")
+
+
+def delatex(s: str) -> str:
+    """Turn common BibTeX/LaTeX text escapes into Unicode and drop grouping braces (math is kept)."""
+    s = _ACCENT_RE.sub(lambda m: unicodedata.normalize("NFC", m.group(2) + _ACCENTS[m.group(1)]), s)
+    s = _SPECIAL_RE.sub(lambda m: _SPECIAL[m.group(1)], s)
+    s = re.sub(r"\\([&%_#$])", r"\1", s)
+    s = re.sub(r"\\(?:textit|textbf|emph|textrm|texttt|textsc)\{", "{", s)
+    return clean(s.replace("{", "").replace("}", "").replace("---", "—").replace("--", "–"))

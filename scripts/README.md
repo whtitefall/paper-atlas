@@ -56,26 +56,39 @@ papers in other datasets.
 
 ## Sources
 
+Every source is read in a way its robots.txt allows (see "Being polite"). For venue-years whose
+abstracts sit on one page per paper, a paper whose abstract is already in the local arXiv harvest
+(matched by its arXiv link or its exact normalised title) skips that request, so run `--venue arxiv`
+first for the fewest requests.
+
 | Venue key | Years | Source | Requests per venue-year |
 | --- | --- | --- | --- |
-| `acl`, `emnlp`, `naacl` | 2023–2025 (no NAACL 2023) | ACL Anthology XML on GitHub (`acl-org/acl-anthology/data/xml/{year}.{venue}.xml`): main-conference long and short papers (EMNLP's `main` volume) | 1 |
-| `neurips`, `icml`, `iclr`, `cvpr` | 2023–2025 | Conference virtual site JSON (`https://{host}/static/virtual/data/{venue}-{year}-orals-posters.json`) | 1 (+1 for CVPR: CVF listing, adds PDF and arXiv links) |
-| `iccv` | 2025 | Virtual site JSON as above, plus the CVF listing | 2 |
-| `iccv` | 2023 | CVF open access (`openaccess.thecvf.com/ICCV2023`): listing plus one page per paper for the abstract | ~2,100 |
-| `eccv` | 2024 | Virtual site JSON (`eccv.ecva.net`) | 1 |
-| `aaai` | 2023–2025 | OAI-PMH at `ojs.aaai.org/index.php/AAAI/oai`, technical-track issues only (one harvest shared by all years) | ~100 pages total |
-| `ijcai` | 2023–2025 | `ijcai.org/proceedings/{year}/`: main track only, one `{n}.json` record per paper | ~700–1,000 |
-| `arxiv` | 2024 to today | arXiv OAI-PMH (`export.arxiv.org/oai2`, set `cs`), filtered to cs.AI / cs.CL / cs.CV / cs.LG and bucketed by submission month (the id's yymm) | a few hundred pages total |
+| `acl`, `emnlp`, `naacl` | 2023–2026 (no NAACL in 2023 or 2026) | ACL Anthology XML on GitHub (`acl-org/acl-anthology/data/xml/{year}.{venue}.xml`): main-conference long and short papers (EMNLP's `main` volume) | 1 |
+| `icml` | 2023–2026 | PMLR (`proceedings.mlr.press/{volume}/assets/bib/bibliography.bib`: v202, v235, v267, v306), abstracts included | 1 |
+| `neurips` | 2023–2024 | `proceedings.neurips.cc/paper_files/paper/{year}`: listing plus one abstract page per paper | 1 + up to ~4,500 |
+| `iclr` | 2024–2026 | `proceedings.iclr.cc/paper_files/paper/{year}`: listing plus one abstract page per paper | 1 + up to ~5,400 |
+| `neurips` 2025–2026, `iclr` 2023, `eccv` 2026 | | Conference virtual site, robots-allowed pages only: `/virtual/{year}/papers.html` (titles) plus `/virtual/{year}/poster/{id}` (authors, abstract) | 1 + up to one per paper |
+| `cvpr` | 2023–2026 | CVF open access (`openaccess.thecvf.com/CVPR{year}`): listing (titles, authors, PDF, arXiv links) plus one page per paper for the abstract | 1 + up to ~4,000 |
+| `iccv` | 2023, 2025 | CVF open access, as for CVPR | 1 + up to ~2,700 |
+| `eccv` | 2024 | ECVA open access (`www.ecva.net/papers.php`) plus one page per paper for the abstract | 1 + up to ~2,400 |
+| `aaai` | 2023–2026 | OAI-PMH at `ojs.aaai.org/index.php/AAAI/oai`, technical-track issues only (one harvest shared by all years; its first page is refreshed weekly) | ~130 pages total |
+| `ijcai` | 2023–2026 | `ijcai.org/proceedings/{year}/`: main track only, one `{n}.json` record per paper | ~700–1,300 |
+| `arxiv` | 2024 to today | arXiv OAI-PMH (`export.arxiv.org/oai2`, set `cs`), filtered to cs.AI / cs.CL / cs.CV / cs.LG and bucketed by submission month (the id's yymm) | ~12 pages per month |
 
-ICLR and NeurIPS are not read from the OpenReview API, because it answers automated clients with a
-"challenge required" 403. ICML comes from its virtual site rather than proceedings.mlr.press
-because the virtual site returns the whole year, abstracts included, in one request.
+Sources we do not use:
+
+- The conference virtual sites' `/static/virtual/data/{venue}-{year}-orals-posters.json` dumps.
+  Their robots.txt disallows `/static`, and from 2026 the dumps no longer carry abstracts.
+- The OpenReview API, which answers automated clients with a "challenge required" 403.
+  Listings for the current year (and later years) are cached for a week, so new venue-years and late
+  additions show up. Earlier years are cached for good. A 404, or a listing that is still empty, is
+  never cached.
 
 ## Paper file schema
 
 ```json
 {
-  "venue": "CVPR", "year": 2024, "source": "https://cvpr.thecvf.com/", "fetched_at": "2026-11-23T05:10:39+00:00",
+  "venue": "CVPR", "year": 2024, "source": "https://openaccess.thecvf.com/", "fetched_at": "2026-11-23T05:10:39+00:00",
   "papers": [{
     "id": "2403.01234 | cvpr2024-<title-slug>",
     "title": "...", "authors": ["..."], "abstract": "...",
@@ -93,6 +106,10 @@ at the top level. A file larger than about 50 MB is split into `{name}-part1.jso
 ## Being polite
 
 - The User-Agent is `paper-atlas-fetcher (+https://github.com/whtitefall/paper-atlas)`.
+- `common.Http` reads every host's robots.txt (cached for a week) and refuses any URL it disallows
+  for our User-Agent, honouring `Crawl-delay`. There is one exception: export.arxiv.org's robots.txt
+  disallows everything, but arXiv documents its OAI-PMH endpoint there for metadata harvesting
+  (<https://info.arxiv.org/help/oa/index.html>).
 - Requests to the same host are spaced at least 1 s apart (3 s for arXiv).
 - 429 and 5xx responses are retried with exponential backoff, honouring `Retry-After`.
 - Everything is cached, so normal reruns hit only new data.

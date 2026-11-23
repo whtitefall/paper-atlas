@@ -7,15 +7,15 @@ import re
 
 from bs4 import BeautifulSoup
 
-from common import paper, log
+from common import paper, log, listing_max_age
 
-YEARS = {"ijcai": [2023, 2024, 2025]}
+YEARS = {"ijcai": [2023, 2024, 2025, 2026]}
 BASE = "https://ijcai.org/proceedings/{year}/"
 
 
 def fetch(http, venue, year):
     base = BASE.format(year=year)
-    html = http.get(base, ok_404=True)
+    html = http.get(base, ok_404=True, max_age=listing_max_age(year))
     if not html:
         log(f"  ijcai {year}: proceedings page not found, skipped")
         return None
@@ -27,6 +27,7 @@ def fetch(http, venue, year):
             main = sec
             break
     if main is None:
+        http.forget(base)
         log(f"  ijcai {year}: no 'Main Track' section found, skipped")
         return None
     nums = []

@@ -4,12 +4,13 @@ One request per venue-year (the whole proceedings collection is a single XML fil
 """
 import xml.etree.ElementTree as ET
 
-from common import paper, write_output, log, arxiv_from_url
+from common import paper, log, arxiv_from_url, listing_max_age
 
 XML_URL = "https://raw.githubusercontent.com/acl-org/acl-anthology/master/data/xml/{year}.{venue}.xml"
 VOLUMES = ("long", "short", "main")  # EMNLP publishes long+short together as "main"
 NAMES = {"acl": "ACL", "emnlp": "EMNLP", "naacl": "NAACL"}
-YEARS = {"acl": [2023, 2024, 2025], "emnlp": [2023, 2024, 2025], "naacl": [2024, 2025]}  # no NAACL in 2023
+YEARS = {"acl": [2023, 2024, 2025, 2026], "emnlp": [2023, 2024, 2025, 2026],
+         "naacl": [2024, 2025]}  # no NAACL in 2023 or 2026
 
 
 def _text(el):
@@ -24,7 +25,7 @@ def _author(a):
 
 def fetch(http, venue, year):
     url = XML_URL.format(year=year, venue=venue)
-    xml = http.get(url, ok_404=True)
+    xml = http.get(url, ok_404=True, max_age=listing_max_age(year))
     if xml is None:
         log(f"  {venue} {year}: not in the ACL Anthology (404), skipped")
         return None
@@ -50,6 +51,7 @@ def fetch(http, venue, year):
                 arxiv_id=arxiv,
             ))
     if not papers:
+        http.forget(url)
         log(f"  {venue} {year}: no long/short volumes found yet, skipped")
         return None
     return dict(venue=NAMES[venue], year=year, source="https://aclanthology.org/", papers=papers)
