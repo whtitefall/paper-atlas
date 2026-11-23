@@ -1,46 +1,48 @@
 # Paper Atlas
 
-一个纯前端的论文探索网站，三个视图：
+A browser-only web app for exploring research papers, with three views:
 
-| 视图 | 做什么 | 怎么算 |
+| View | What it shows | How it works |
 | --- | --- | --- |
-| **论文地图** `#/map` | 把一个会议/主题的论文按语义摊在二维平面上，可搜索、按簇/年份/子领域着色、点击看详情 | 标题+摘要 → TF-IDF → 随机投影(96 维) → UMAP(2D)；k-means 分簇，用簇内最有区分度的词做标签 |
-| **相关论文图** `#/graph?seed=W…` | 以一篇种子论文为中心的相似论文网络，附“前序工作 / 衍生工作”列表 | 候选池 = 种子的参考文献 + 被引最多的施引文献 + OpenAlex related works；相似度 = 文献耦合（共同参考文献）+ 共被引 + 直接引用加成；取最相似 40 篇做力导向图 |
-| **知识流** `#/flows?topic=…` | 一个主题下的论文按年份 × 研究子领域排开，曲线是主题内部的引用；点击论文高亮其上游来源和下游影响 | 取主题下被引最多的 N 篇，按 OpenAlex primary_topic 的子领域分泳道；统计子领域之间的引用流量 |
+| **Paper map** `#/map` | All papers of a venue or query laid out on a 2D plane by meaning. Search to highlight, colour by cluster / year / subfield, click a paper for details. | Title + abstract → TF-IDF → 96-dim random projection → UMAP (2D). k-means clusters, each labelled with its most distinctive terms. |
+| **Related-paper graph** `#/graph?seed=W…` | A network of the papers most similar to a seed paper, plus "prior works" and "derivative works" lists. | Candidate pool = the seed's references + its most-cited citing papers + OpenAlex related works. Similarity = bibliographic coupling (shared references) + co-citation (cited together) + a bonus for direct citation. The top 40 are drawn as a force-directed graph. |
+| **Knowledge flows** `#/flows?topic=…` | The most-cited papers on a topic, placed by year × research subfield, with curves for citations between them. Click a paper to highlight its upstream sources and downstream influence. | Takes the top-N most-cited papers for the topic, puts them in swim lanes by OpenAlex primary-topic subfield, and counts citation flows between subfields. |
 
-数据全部来自 [OpenAlex](https://openalex.org)，浏览器直接请求，结果缓存在 IndexedDB。
+All data comes from [OpenAlex](https://openalex.org). The browser calls the API directly and caches responses in IndexedDB.
 
-## 运行
+The UI text is currently in Chinese.
+
+## Getting started
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # 产物在 dist/，可直接部署到任意静态托管（GitHub Pages / Vercel / Netlify）
+npm run build      # static output in dist/, deployable to any static host (GitHub Pages, Vercel, Netlify)
 ```
 
-右上角“演示数据”开关使用内置的合成语料，不发任何网络请求，适合离线调试 UI。
+The **demo data** toggle in the top bar switches to a built-in synthetic corpus and makes no network requests, which is handy for working on the UI offline.
 
-## OpenAlex 额度
+## OpenAlex usage limits
 
-OpenAlex 现在按请求计费：不带 key 时，同一 IP 每天共享约 $0.10 的免费额度（约 100 次请求）。
-生成一次地图约 2–9 次请求，一张相关论文图约 5–7 次，一次知识流约 2–4 次；重复访问走本地缓存。
-在 <https://openalex.org/settings/api> 免费申请 key（每天 $1），填到“设置”里即可（只存在本浏览器）。
+OpenAlex now meters requests. Without an API key, everyone behind the same IP address shares a free budget of about $0.10 per day (roughly 100 requests).
+A paper map takes about 2–9 requests, a related-paper graph about 5–7, and a knowledge-flow view about 2–4. Repeat visits are served from the local cache.
+A free key (about $1 per day of budget) is available at <https://openalex.org/settings/api>. Paste it into **Settings** in the app; it is stored only in your browser.
 
-## 代码结构
+## Project structure
 
 ```
 src/
-  api.js          OpenAlex 封装：缓存、分页、批量按 id 取、去重；演示模式切到 mock.js
-  mock.js         确定性合成语料（900 篇，8 个方向，带引用关系）
-  lib/embed.js    TF-IDF、随机投影、UMAP、k-means、簇标签
-  views/map.js    论文地图（canvas + d3-zoom + quadtree 命中检测）
-  views/graph.js  相关论文图（SVG + d3-force）
-  views/flows.js  知识流（SVG 泳道时间轴 + 引用曲线）
-  ui.js / main.js 路由、提示、详情卡片
+  api.js          OpenAlex client: caching, cursor paging, batched lookups by id, de-duplication; demo mode routes to mock.js
+  mock.js         Deterministic synthetic corpus (900 papers, 8 research areas, with citations)
+  lib/embed.js    TF-IDF, random projection, UMAP, k-means, cluster labels
+  views/map.js    Paper map (canvas + d3-zoom + quadtree hit testing)
+  views/graph.js  Related-paper graph (SVG + d3-force)
+  views/flows.js  Knowledge flows (SVG swim-lane timeline + citation curves)
+  ui.js, main.js  Routing, status messages, tooltips, detail cards
 ```
 
-## 后续可以做
+## Possible next steps
 
-- 用真正的句向量（如 SPECTER2 / OpenAI embeddings）离线预计算某个会议的地图，替代浏览器里的 TF-IDF
-- 加一个小后端代理统一持有 API key 并做服务端缓存
-- 地图上框选、作者视图；相关论文图支持多种子；知识流加时间段间的桑基图
+- Precompute a venue's map offline with real sentence embeddings (e.g. SPECTER2) instead of in-browser TF-IDF
+- Add a small backend proxy that holds the API key and caches responses server-side
+- Lasso selection and an author view on the map; multiple seeds for the graph; a Sankey view of flows between time periods

@@ -1,4 +1,4 @@
-// Deterministic synthetic corpus used by "演示数据" mode and for offline testing.
+// Deterministic synthetic corpus used by the demo-data toggle and for offline testing.
 // Shapes match api.normalize() output.
 
 function rng(seed) {
