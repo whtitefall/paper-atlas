@@ -72,7 +72,7 @@ first for the fewest requests.
 | `cvpr` | 2023–2026 | CVF open access (`openaccess.thecvf.com/CVPR{year}`): listing (titles, authors, PDF, arXiv links) plus one page per paper for the abstract | 1 + up to ~4,000 |
 | `iccv` | 2023, 2025 | CVF open access, as for CVPR | 1 + up to ~2,700 |
 | `eccv` | 2024 | ECVA open access (`www.ecva.net/papers.php`) plus one page per paper for the abstract | 1 + up to ~2,400 |
-| `aaai` | 2023–2026 | OAI-PMH at `ojs.aaai.org/index.php/AAAI/oai`, technical-track issues only (one harvest shared by all years; its first page is refreshed weekly) | ~130 pages total |
+| `aaai` | 2023 to today | OAI-PMH at `ojs.aaai.org/index.php/AAAI/oai`, technical-track issues only. One harvest, month by month, shared by all years; finished months are cached under `data/raw/aaai-windows/`. A span the server keeps failing on is split down to a single second, skipped, and retried on later runs | ~180 for the first harvest, then a few per run |
 | `ijcai` | 2023–2026 | `ijcai.org/proceedings/{year}/`: main track only, one `{n}.json` record per paper | ~700–1,300 |
 | `arxiv` | 2024 to today | arXiv OAI-PMH (`export.arxiv.org/oai2`, set `cs`), filtered to cs.AI / cs.CL / cs.CV / cs.LG and bucketed by submission month (the id's yymm) | ~12 pages per month |
 

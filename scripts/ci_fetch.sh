@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Fetch papers for the CI build within a time budget (used by .github/workflows/deploy.yml).
 #
-# Quick sources (one or a few requests per venue-year) run first, one after another. The others need
-# one request per paper and live on different hosts, so they run side by side; each host still gets
-# at most one request per second (see common.Http). Whatever is not fetched before the deadline comes
-# from the download cache on the next run, so the first full fetch is spread over a few runs.
+# Quick sources (one or a few requests per venue-year) run first, one after another. The others page
+# through OAI-PMH or need one request per paper; they live on different hosts, so they run side by
+# side, and each host still gets at most one request per second (see common.Http). Whatever is not
+# fetched before the deadline comes from the download cache on the next run, so the first full fetch
+# is spread over a few runs.
 #
 # Usage: bash scripts/ci_fetch.sh [--refresh]
 #   FETCH_BUDGET_MIN  minutes before every fetcher is stopped (default 200)
@@ -28,13 +29,15 @@ fetch() {  # one venue, stopped at the deadline
 group() {  # name venue...: fetch the venues in order, prefixing each log line with the name
   local name=$1
   shift
-  for v in "$@"; do fetch "$v"; done 2>&1 | sed -u "s/^/[$name] /"
+  # workflow commands (::warning::) stay unprefixed so GitHub still turns them into annotations
+  for v in "$@"; do fetch "$v"; done 2>&1 | sed -u "/^::/!s/^/[$name] /"
 }
 
-for v in acl emnlp naacl icml aaai; do fetch "$v"; done
+for v in acl emnlp naacl icml; do fetch "$v"; done
 
 pids=()
 if [[ ${SKIP_ARXIV:-} != 1 ]]; then group arxiv arxiv & pids+=($!); fi
+group aaai aaai & pids+=($!)
 group neurips neurips & pids+=($!)
 group iclr iclr & pids+=($!)
 group cvf cvpr iccv & pids+=($!)
