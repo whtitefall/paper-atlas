@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '23 3 * * 1' # every Monday, 03:23 UTC
+    - cron: '23 3 * * *' # every day, 03:23 UTC
   workflow_dispatch:
     inputs:
       arxiv:
@@ -46,7 +46,7 @@ jobs:
 
       - run: pip install -r requirements.txt -r scripts/requirements-build.txt
 
-      # Raw responses from the paper sites; with them, a weekly run only downloads what is new.
+      # Raw responses from the paper sites; with them, a run only downloads what is new.
       - name: Restore download cache
         uses: actions/cache/restore@v4
         with:
@@ -54,17 +54,16 @@ jobs:
           key: raw-${{ github.run_id }}
           restore-keys: raw-
 
-      # A source that is down or slow must not block the deploy: the steps below use whatever was fetched.
-      - name: Fetch venue papers
-        run: python scripts/fetch.py --all --skip arxiv $REFRESH
-        timeout-minutes: 150
+      # Quick sources first, then the per-paper sources side by side, one host each, for at most
+      # FETCH_BUDGET_MIN minutes. A source that is down or slow doesn't block the deploy: the build
+      # uses whatever was fetched, and the next run continues from the cache.
+      - name: Fetch papers
+        run: bash scripts/ci_fetch.sh $REFRESH
+        timeout-minutes: 230
         continue-on-error: true
-
-      - name: Fetch arXiv
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.arxiv }}
-        run: python scripts/fetch.py --venue arxiv $REFRESH
-        timeout-minutes: 150
-        continue-on-error: true
+        env:
+          FETCH_BUDGET_MIN: 200
+          SKIP_ARXIV: ${{ (github.event_name == 'workflow_dispatch' && !inputs.arxiv) && '1' || '' }}
 
       - name: Save download cache
         if: always()

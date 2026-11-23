@@ -77,7 +77,9 @@ def _harvest_window(http, start, end, final):
         params = {"verb": "ListRecords", "resumptionToken": tok.text.strip()}
     if final:
         WIN_DIR.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        tmp = path.with_suffix(".tmp")  # write-then-rename: other fetchers may read these files meanwhile
+        tmp.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
     log(f"  arxiv window {start:%Y-%m-%d}..{end:%Y-%m-%d}: {len(out)} matching records ({pages} pages)")
     return out
 
