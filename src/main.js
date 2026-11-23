@@ -1,5 +1,6 @@
-import { settings, clearCache } from './api.js';
 import { route } from './ui.js';
+import { applyStatic, getLang, setLang, t } from './i18n.js';
+import { loadIndex } from './data.js';
 import * as mapView from './views/map.js';
 import * as graphView from './views/graph.js';
 import * as flowsView from './views/flows.js';
@@ -22,22 +23,25 @@ function render(force = false) {
 
 window.addEventListener('hashchange', () => render());
 
-// demo toggle
-const demo = document.getElementById('demo-mode');
-demo.checked = settings.demo;
-demo.addEventListener('change', () => { settings.demo = demo.checked; render(true); });
+// "Data updated <date> · <n> papers", from the atlas index
+const info = document.getElementById('data-info');
+async function showInfo() {
+  try {
+    const index = await loadIndex();
+    const date = (index.generated_at || '').slice(0, 10);
+    info.textContent = t('data.info', { date, n: index.n.toLocaleString() });
+  } catch {
+    info.textContent = '';
+  }
+}
 
-// settings dialog
-const dlg = document.getElementById('settings');
-document.getElementById('settings-btn').addEventListener('click', () => {
-  document.getElementById('api-key').value = settings.apiKey;
-  document.getElementById('clear-cache').checked = false;
-  dlg.showModal();
-});
-dlg.addEventListener('close', async () => {
-  if (dlg.returnValue !== 'save') return;
-  settings.apiKey = document.getElementById('api-key').value.trim();
-  if (document.getElementById('clear-cache').checked) await clearCache();
+// language
+applyStatic();
+showInfo();
+document.getElementById('lang-btn').addEventListener('click', () => {
+  setLang(getLang() === 'zh' ? 'en' : 'zh');
+  showInfo();
+  render(true);
 });
 
 render(true);
