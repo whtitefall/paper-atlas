@@ -1,2 +1,8 @@
 node_modules
 dist
+
+# fetcher outputs and caches (generated; not committed)
+data/
+public/data/
+.venv/
+__pycache__/

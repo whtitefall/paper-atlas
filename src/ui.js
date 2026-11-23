@@ -1,4 +1,7 @@
 // Shared UI helpers.
+import { t } from './i18n.js';
+import { abstractOf } from './data.js';
+
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const statusEl = () => document.getElementById('status');
@@ -26,31 +29,44 @@ export function tip(event, html) {
 }
 export function hideTip() { tipEl().classList.add('hidden'); }
 
-export function authorsLine(w, n = 3) {
-  if (!w.authors?.length) return '';
-  return w.authors.slice(0, n).join(', ') + (w.authors.length > n ? ' 等' : '');
+export function authorsLine(p, n = 3) {
+  const list = (p.authors || '').split(', ').filter(Boolean);
+  if (!list.length) return '';
+  return list.slice(0, n).join(', ') + (list.length > n ? ' …' : '');
 }
 
-export function tipHtml(w) {
-  return `<b>${esc(w.title)}</b><div class="muted">${esc(authorsLine(w))} · ${w.year ?? ''} · 被引 ${w.citations.toLocaleString()}</div>`;
+export const venueYear = (p) => `${p.venue} ${p.year}`;
+
+export function tipHtml(p) {
+  return `<b>${esc(p.title)}</b><div class="muted">${esc(authorsLine(p))}${p.authors ? ' · ' : ''}${esc(venueYear(p))}</div>`;
 }
 
-/** Detail card for the side panel. `actions` = [{label, href}] */
-export function paperCard(w, actions = []) {
-  const abs = w.abstract ? esc(w.abstract.length > 900 ? w.abstract.slice(0, 900) + '…' : w.abstract) : '<span class="muted">（无摘要）</span>';
+/** Detail card for the side panel; the abstract is filled in once loaded. `actions` = [{label, href}] */
+export function paperCard(p, actions = []) {
+  const id = `abs-${p.gi}`;
+  abstractOf(p).then((abs) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = abs ? esc(abs) : `<span class="muted">${t('noAbstract')}</span>`;
+  }).catch(() => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<span class="muted">${t('noAbstract')}</span>`;
+  });
+  const links = [
+    ...actions.map((a) => `<a class="btn small" href="${esc(a.href)}">${esc(a.label)}</a>`),
+    p.url ? `<a class="btn small ghost" href="${esc(p.url)}" target="_blank" rel="noopener">${t('source')}</a>` : '',
+    p.pdf ? `<a class="btn small ghost" href="${esc(p.pdf)}" target="_blank" rel="noopener">${t('pdf')}</a>` : '',
+  ].join('');
   return `<article class="paper-card">
-    <h3>${esc(w.title)}</h3>
-    <div class="meta">${esc(authorsLine(w, 6))}</div>
-    <div class="meta">${w.year ?? ''}${w.venue ? ' · ' + esc(w.venue) : ''} · 被引 ${w.citations.toLocaleString()}</div>
-    <div class="chips"><span class="chip">${esc(w.subfield)}</span><span class="chip">${esc(w.topic)}</span></div>
-    <p class="abstract">${abs}</p>
-    <div class="row">${actions.map((a) => `<a class="btn small" href="${esc(a.href)}" ${a.external ? 'target="_blank" rel="noopener"' : ''}>${esc(a.label)}</a>`).join('')}
-    ${w.url && w.url !== '#' ? `<a class="btn small ghost" href="${esc(w.url.startsWith('http') ? w.url : 'https://openalex.org/' + w.id)}" target="_blank" rel="noopener">原文 ↗</a>` : ''}</div>
+    <h3>${esc(p.title)}</h3>
+    <div class="meta">${esc(authorsLine(p, 8))}</div>
+    <div class="chips"><span class="chip strong">${esc(venueYear(p))}</span></div>
+    <p class="abstract" id="${id}"><span class="muted">${t('loadingAbstract')}</span></p>
+    <div class="row">${links}</div>
   </article>`;
 }
 
 export function debounce(fn, ms = 200) {
-  let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), ms); };
 }
 
 /** Parse "#/view?x=1" */
@@ -63,4 +79,10 @@ export function setParams(view, params) {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)).toString();
   const next = `#/${view}${qs ? '?' + qs : ''}`;
   if (location.hash !== next) history.replaceState(null, '', next);
+}
+
+/** A short "Surname Year" label for graph nodes. */
+export function shortLabel(p) {
+  const first = (p.authors || '').split(', ')[0] || '';
+  return `${first.split(' ').slice(-1)[0]} ${p.year}`.trim();
 }

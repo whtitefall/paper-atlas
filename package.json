@@ -1,5 +1,5 @@
 {
-  "name": "paper-explorer",
+  "name": "paper-atlas",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "d3": "^7.9.0",
-    "umap-js": "^1.4.0"
+    "d3": "^7.9.0"
   },
   "devDependencies": {
     "vite": "^5.4.0"

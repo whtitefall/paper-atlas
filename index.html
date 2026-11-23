@@ -4,34 +4,30 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Paper Atlas</title>
+  <meta name="description" content="Explore AI research papers from top conferences, journals and arXiv: a semantic paper map, related-paper graphs and knowledge flows." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">Paper Atlas</div>
+    <a class="brand" href="#/map">
+      <img class="logo" src="/logo.svg" alt="" width="28" height="28" />
+      <span>Paper Atlas</span>
+    </a>
     <nav class="tabs">
-      <a href="#/map" data-tab="map">论文地图</a>
-      <a href="#/graph" data-tab="graph">相关论文图</a>
-      <a href="#/flows" data-tab="flows">知识流</a>
+      <a href="#/map" data-tab="map" data-i18n="nav.map">论文地图</a>
+      <a href="#/graph" data-tab="graph" data-i18n="nav.graph">相关论文图</a>
+      <a href="#/flows" data-tab="flows" data-i18n="nav.flows">知识流</a>
     </nav>
     <div class="topbar-right">
-      <label class="demo-toggle" title="使用内置的合成数据，不调用 OpenAlex"><input type="checkbox" id="demo-mode" /> 演示数据</label>
-      <button id="settings-btn" class="ghost">设置</button>
+      <span id="data-info" class="muted small"></span>
+      <button id="lang-btn" class="ghost small" data-i18n="lang.toggle" data-i18n-title="lang.title">EN</button>
+      <a class="btn small ghost" href="https://github.com/whtitefall/paper-atlas" target="_blank" rel="noopener">GitHub</a>
     </div>
   </header>
   <main id="app"></main>
   <div id="status" class="status hidden"></div>
   <div id="tooltip" class="tooltip hidden"></div>
-
-  <dialog id="settings">
-    <form method="dialog">
-      <h3>设置</h3>
-      <p class="muted">数据来自 <a href="https://openalex.org" target="_blank" rel="noopener">OpenAlex</a>。不填 key 时共享一个很小的免费日额度；在 openalex.org/settings/api 免费申请 key 可获得独立额度。key 只保存在本浏览器。</p>
-      <label>OpenAlex API key <input id="api-key" type="password" autocomplete="off" placeholder="可选" /></label>
-      <label><input id="clear-cache" type="checkbox" /> 清空本地请求缓存</label>
-      <div class="row end"><button value="cancel" class="ghost">取消</button><button id="settings-save" value="save">保存</button></div>
-    </form>
-  </dialog>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
