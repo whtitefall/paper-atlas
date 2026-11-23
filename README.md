@@ -1,7 +1,7 @@
 # Paper Atlas
 
 Explore AI research papers from top conferences, journals and arXiv in three views. The site is fully
-static: a weekly job fetches paper metadata from the venues' own websites and from arXiv, precomputes
+static: a daily job fetches paper metadata from the venues' own websites and from arXiv, precomputes
 everything, and publishes the result to GitHub Pages. The browser never calls an external API.
 
 **Live site:** https://whtitefall.github.io/paper-atlas/ (available after the first deploy)
@@ -47,9 +47,12 @@ npm run build      # static site in dist/
 ## Deployment
 
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs on every push to `main`, every
-Monday, and on demand. It restores the download cache, fetches new papers, rebuilds the atlas, builds
+day, and on demand. It restores the download cache, fetches new papers, rebuilds the atlas, builds
 the site and deploys it to GitHub Pages. It needs **Settings → Pages → Source** set to
-**GitHub Actions**. A source that is down doesn't block the deploy; the run uses whatever was fetched.
+**GitHub Actions**. Fetching has a time budget per run ([`scripts/ci_fetch.sh`](scripts/ci_fetch.sh)):
+a source that is down or slow doesn't block the deploy, and the next run continues from the cache.
+Sources that need one request per paper therefore take a few runs to fill in the first time; after
+that a run only fetches what is new.
 
 ## Project structure
 
@@ -73,4 +76,4 @@ public/logo.svg   logo
 - Citation data (for example from Semantic Scholar with a free API key) to replace the similarity
   stand-in in the graph and the flows
 - Fetchers for KDD, WWW, SIGIR and the journals
-- Sentence-transformer embeddings (MiniLM or SPECTER2) in the weekly build
+- Sentence-transformer embeddings (MiniLM or SPECTER2) in the daily build

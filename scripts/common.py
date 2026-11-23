@@ -306,7 +306,12 @@ def _load_arxiv():
         by_title: dict[str, dict] = {}
         by_id: dict[str, dict] = {}
         for path in sorted((RAW_DIR / "arxiv-windows").glob("*.json")):
-            for r in json.loads(path.read_text(encoding="utf-8")):
+            try:
+                records = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as e:  # e.g. an interrupted older run
+                log(f"  ! skipping unreadable {path.name}: {e}")
+                continue
+            for r in records:
                 by_id[r["id"]] = r                # later windows hold newer metadata
                 k = title_key(r["title"])
                 if len(k) >= 20:                  # skip very short / generic titles

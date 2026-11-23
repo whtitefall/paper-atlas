@@ -6,7 +6,8 @@ Paper Atlas runs on static files. Two steps produce them, and neither needs an A
    into `data/papers/`.
 2. `scripts/build_atlas.py` turns those files into the atlas the site reads, in `public/data/atlas/`.
 
-The weekly GitHub Actions workflow (`.github/workflows/deploy.yml`) runs both before it deploys the site.
+The daily GitHub Actions workflow (`.github/workflows/deploy.yml`) runs both before it deploys the site,
+fetching through `scripts/ci_fetch.sh` within a time budget.
 `data/` and `public/data/` are gitignored, so fetched papers and the atlas are build artifacts and are
 never committed.
 
