@@ -16,7 +16,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
-OUT_DIR = ROOT / "public" / "data" / "papers"
+OUT_DIR = ROOT / "data" / "papers"  # raw inputs for build_atlas.py; not published
 
 USER_AGENT = "paper-atlas-fetcher (+https://github.com/whtitefall/paper-atlas)"
 DEFAULT_INTERVAL = 1.0          # seconds between requests to the same host
@@ -167,7 +167,7 @@ def dedupe_by_title(papers: list[dict]) -> list[dict]:
 
 def write_output(name: str, *, venue: str, year: int, source: str, papers: list[dict],
                  extra: dict | None = None) -> list[Path]:
-    """Write public/data/papers/{name}.json (split into -partN files if over ~50 MB)."""
+    """Write data/papers/{name}.json (split into -partN files if over ~50 MB)."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for old in OUT_DIR.glob(f"{name}.json"):
         old.unlink()
@@ -201,7 +201,7 @@ def write_output(name: str, *, venue: str, year: int, source: str, papers: list[
 
 
 def write_index():
-    """public/data/papers/index.json: one entry per output file, for the frontend."""
+    """data/papers/index.json: one entry per output file (a summary of what has been fetched)."""
     entries = []
     for path in sorted(OUT_DIR.glob("*.json")):
         if path.name == "index.json":

@@ -1,4 +1,4 @@
-"""arXiv papers in cs.AI / cs.CL / cs.CV / cs.LG submitted in 2024-2025, via OAI-PMH.
+"""arXiv papers in cs.AI / cs.CL / cs.CV / cs.LG submitted from 2024 to today, via OAI-PMH.
 
 OAI-PMH selects by datestamp (last metadata change), not by submission date, so we harvest the
 `cs` set month by month from 2024-01 up to today and bucket records by the yymm prefix of their
@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 from common import RAW_DIR, paper, log
 
-YEARS = {"arxiv": [2024, 2025]}
+YEARS = {"arxiv": list(range(2024, dt.date.today().year + 1))}
 OAI = "https://export.arxiv.org/oai2"
 CATEGORIES = {"cs.AI", "cs.CL", "cs.CV", "cs.LG"}
 START = dt.date(2024, 1, 1)
@@ -82,13 +82,24 @@ def _harvest_window(http, start, end, final):
     return out
 
 
+_records = None  # every matching record, harvested once per run and shared by all years
+
+
+def _all_records(http):
+    global _records
+    if _records is None:
+        today = dt.date.today()
+        latest = {}
+        for start, end in _windows(today):
+            final = end < today - dt.timedelta(days=2)   # recent windows can still change
+            for r in _harvest_window(http, start, end, final):
+                latest[r["id"]] = r  # later windows hold the newer metadata
+        _records = latest
+    return _records
+
+
 def fetch(http, venue, year):
-    today = dt.date.today()
-    latest = {}
-    for start, end in _windows(today):
-        final = end < today - dt.timedelta(days=2)   # recent windows can still change
-        for r in _harvest_window(http, start, end, final):
-            latest[r["id"]] = r  # later windows hold the newer metadata
+    latest = _all_records(http)
     results = []
     yy = year % 100
     for month in range(1, 13):

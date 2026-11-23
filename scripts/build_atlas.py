@@ -13,6 +13,7 @@ Every paper lives in one shared 2D space, so any selection of venues/years is a 
 Usage:
   python scripts/build_atlas.py                       # TF-IDF + SVD embeddings (no model download)
   python scripts/build_atlas.py --embed minilm        # sentence-transformers all-MiniLM-L6-v2
+  python scripts/build_atlas.py --arxiv-months 6      # publish fewer arXiv months (default 12, 0 = all)
 """
 from __future__ import annotations
 
@@ -55,19 +56,29 @@ def norm_title(t: str) -> str:
     return re.sub(r'[^\w]+', ' ', t.lower()).strip()
 
 
-def load_papers(papers_dir: Path):
+STEM = re.compile(r'^([a-z]+)-(\d{4})(?:-(\d{2}))?(?:-part\d+)?$')  # cvpr-2024, arxiv-2024-03, arxiv-2024-03-part2
+
+
+def load_papers(papers_dir: Path, arxiv_months: int = 0):
     """Read fetcher outputs, group into datasets, drop arXiv copies of venue papers."""
+    files = [f for f in sorted(papers_dir.glob('*.json')) if f.name != 'index.json']  # index.json lists the files
+    if arxiv_months:
+        ym = lambda f: (STEM.match(f.stem).group(2), STEM.match(f.stem).group(3) or '00')  # noqa: E731
+        ax = [f for f in files if f.stem.startswith('arxiv-') and STEM.match(f.stem)]
+        keep = set(sorted({ym(f) for f in ax}, reverse=True)[:arxiv_months])
+        dropped = [f for f in ax if ym(f) not in keep]
+        if dropped:
+            log(f'keeping the newest {arxiv_months} arXiv months; skipping {len(dropped)} older arXiv files')
+        files = [f for f in files if f not in dropped]
     datasets = {}
-    for f in sorted(papers_dir.glob('*.json')):
-        if f.name == 'index.json':  # the fetchers' file listing, not a dataset
-            continue
+    for f in files:
         data = json.loads(f.read_text(encoding='utf-8'))
-        stem = f.stem  # e.g. cvpr-2024, arxiv-2024-03, arxiv-2024-03-part2
+        stem = f.stem
         vkey = stem.split('-')[0].lower()
         name, kind = VENUES.get(vkey, (data.get('venue') or vkey.upper(), 'conf'))
-        m = re.match(r'^[a-z]+-(\d{4})(?:-(\d{2}))?(?:-part\d+)?$', stem)
-        year = int(m.group(1)) if m else int(data.get('year') or 0)
-        month = int(m.group(2)) if m and m.group(2) else (data.get('month') or None)
+        m = STEM.match(stem)
+        year = int(m.group(2)) if m else int(data.get('year') or 0)
+        month = int(m.group(3)) if m and m.group(3) else (data.get('month') or None)
         papers = [p for p in data.get('papers', []) if p.get('title')]
         datasets[stem] = {'key': stem, 'venue': name, 'vkey': vkey, 'kind': kind, 'year': year, 'month': month, 'papers': papers}
         log(f'loaded {stem}: {len(papers)} papers')
@@ -269,11 +280,13 @@ def main():
     ap.add_argument('--embed', choices=['tfidf', 'minilm'], default='tfidf')
     ap.add_argument('--clusters', type=int, default=None)
     ap.add_argument('--fit-sample', type=int, default=60000)
+    ap.add_argument('--arxiv-months', type=int, default=12,
+                    help='keep only the newest N months of arXiv (0 = all); keeps the published site small')
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    datasets = load_papers(Path(args.papers))
+    datasets = load_papers(Path(args.papers), args.arxiv_months)
     if not datasets:
         sys.exit('no papers found; run the fetchers first (scripts/README.md)')
     papers = [p for d in datasets for p in d['papers']]
@@ -326,7 +339,16 @@ def main():
         index['datasets'].append(meta)
         offset += m
     (out / 'index.json').write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding='utf-8')
-    log(f'wrote {len(datasets)} datasets to {out}')
+    # drop files of datasets that no longer exist (e.g. arXiv months that aged out)
+    live = {d['key'] for d in datasets}
+    for f in out.iterdir():
+        key = f.name.split('.')[0]
+        if f.name != 'index.json' and STEM.match(key) and key not in live:
+            f.unlink()
+    size = sum(f.stat().st_size for f in out.iterdir()) / 1e6
+    log(f'wrote {len(datasets)} datasets to {out} ({size:.0f} MB)')
+    if size > 900:
+        log('warning: GitHub Pages sites should stay under 1 GB; lower --arxiv-months')
 
 
 if __name__ == '__main__':

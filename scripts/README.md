@@ -1,9 +1,16 @@
-# Paper fetchers
+# Data scripts
 
-These scripts build Paper Atlas's static paper data. They need no API keys and don't use OpenAlex.
-Each venue-year is written to `public/data/papers/{venue}-{year}.json`, and arXiv is written per month
-to `public/data/papers/arxiv-{yyyy}-{mm}.json`. An `index.json` in the same folder lists every file
-with its paper count, abstract count and size.
+Paper Atlas runs on static files. Two steps produce them, and neither needs an API key or OpenAlex:
+
+1. `scripts/fetch.py` downloads accepted-paper metadata from each venue's own site and from arXiv
+   into `data/papers/`.
+2. `scripts/build_atlas.py` turns those files into the atlas the site reads, in `public/data/atlas/`.
+
+The weekly GitHub Actions workflow (`.github/workflows/deploy.yml`) runs both before it deploys the site.
+`data/` and `public/data/` are gitignored, so fetched papers and the atlas are build artifacts and are
+never committed.
+
+## 1. Fetch papers
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements.txt   # Windows: .venv\Scripts\pip
@@ -15,9 +22,37 @@ python scripts/fetch.py --all --skip arxiv
 python scripts/fetch.py --all --refresh           # ignore the cache and refetch
 ```
 
-Raw responses are cached under `data/raw/`, so an interrupted or repeated run only fetches what is
-missing. `data/` and `public/data/` are gitignored, so the outputs are build artifacts and are never
-committed.
+Each venue-year is written to `data/papers/{venue}-{year}.json`, and arXiv is written per month to
+`data/papers/arxiv-{yyyy}-{mm}.json`. An `index.json` in the same folder lists every file with its
+paper count, abstract count and size. Raw responses are cached under `data/raw/`, so an interrupted
+or repeated run only fetches what is missing.
+
+## 2. Build the atlas
+
+```bash
+.venv/bin/pip install -r scripts/requirements-build.txt
+python scripts/build_atlas.py                     # TF-IDF + SVD embeddings, no model download
+python scripts/build_atlas.py --embed minilm      # sentence-transformers embeddings (pip install sentence-transformers)
+python scripts/build_atlas.py --arxiv-months 6    # publish fewer arXiv months (default 12, 0 = all)
+```
+
+The script embeds each paper's title and abstract, lays every paper out on one shared 2D map with
+UMAP (so any selection of venues and years is a subset of the same map), groups papers into topic
+clusters with k-means and labels each cluster with its most distinctive terms, finds every paper's
+20 nearest neighbours, and picks a few keywords per paper. arXiv copies of papers that also appear at a
+venue are dropped, and only the newest 12 arXiv months are kept so the site stays well under GitHub
+Pages' 1 GB limit.
+
+| File in `public/data/atlas/` | Contents |
+| --- | --- |
+| `index.json` | Build date, embedding, datasets (venue, kind, year, month, size, offset) and clusters (terms, centre, size) |
+| `{key}.json` | One dataset's papers as rows: id, title, authors, map x/y, cluster, landing page, PDF |
+| `{key}.abs.json` | Abstracts in the same order, loaded only when the site needs them |
+| `{key}.kw.json` | A few keywords per paper, for topic search without loading abstracts |
+| `{key}.nn.bin` | Nearest neighbours: n×20 little-endian Int32 global indices, then n×20 Uint8 similarities (×255) |
+
+A paper's global index is its dataset's `offset` plus its row, which is how neighbour lists point at
+papers in other datasets.
 
 ## Sources
 
@@ -30,13 +65,13 @@ committed.
 | `eccv` | 2024 | Virtual site JSON (`eccv.ecva.net`) | 1 |
 | `aaai` | 2023–2025 | OAI-PMH at `ojs.aaai.org/index.php/AAAI/oai`, technical-track issues only (one harvest shared by all years) | ~100 pages total |
 | `ijcai` | 2023–2025 | `ijcai.org/proceedings/{year}/`: main track only, one `{n}.json` record per paper | ~700–1,000 |
-| `arxiv` | 2024–2025 | arXiv OAI-PMH (`export.arxiv.org/oai2`, set `cs`), filtered to cs.AI / cs.CL / cs.CV / cs.LG and bucketed by submission month (the id's yymm) | a few hundred pages total |
+| `arxiv` | 2024 to today | arXiv OAI-PMH (`export.arxiv.org/oai2`, set `cs`), filtered to cs.AI / cs.CL / cs.CV / cs.LG and bucketed by submission month (the id's yymm) | a few hundred pages total |
 
 ICLR and NeurIPS are not read from the OpenReview API, because it answers automated clients with a
 "challenge required" 403. ICML comes from its virtual site rather than proceedings.mlr.press
 because the virtual site returns the whole year, abstracts included, in one request.
 
-## Output schema
+## Paper file schema
 
 ```json
 {

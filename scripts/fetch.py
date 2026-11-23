@@ -1,4 +1,4 @@
-"""Fetch accepted-paper metadata for top AI venues and arXiv into public/data/papers/.
+"""Fetch accepted-paper metadata for top AI venues and arXiv into data/papers/.
 
 Usage:
   python scripts/fetch.py --venue cvpr --year 2024
