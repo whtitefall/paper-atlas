@@ -141,7 +141,8 @@ class Http:
                 return None
             if r.status_code in (429, 500, 502, 503, 504):
                 wait = r.headers.get("Retry-After")
-                wait = float(wait) if wait and wait.isdigit() else delay
+                # honour Retry-After, but never retry faster than our own backoff (arXiv sends 0)
+                wait = max(float(wait), delay) if wait and wait.isdigit() else delay
                 log(f"  ! {url}: HTTP {r.status_code}, waiting {wait:.0f}s (attempt {attempt}/{retries})")
                 time.sleep(wait); delay *= 2
                 continue
