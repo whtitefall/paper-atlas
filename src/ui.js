@@ -1,5 +1,6 @@
 // Shared UI helpers.
 import { t } from './i18n.js';
+import { icon } from './icons.js';
 import { abstractOf } from './data.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,7 +42,7 @@ export function tipHtml(p) {
   return `<b>${esc(p.title)}</b><div class="muted">${esc(authorsLine(p))}${p.authors ? ' · ' : ''}${esc(venueYear(p))}</div>`;
 }
 
-/** Detail card for the side panel; the abstract is filled in once loaded. `actions` = [{label, href}] */
+/** Detail card for the side panel; the abstract is filled in once loaded. `actions` = [{label, href, icon}] */
 export function paperCard(p, actions = []) {
   const id = `abs-${p.gi}`;
   abstractOf(p).then((abs) => {
@@ -52,9 +53,9 @@ export function paperCard(p, actions = []) {
     if (el) el.innerHTML = `<span class="muted">${t('noAbstract')}</span>`;
   });
   const links = [
-    ...actions.map((a) => `<a class="btn small" href="${esc(a.href)}">${esc(a.label)}</a>`),
-    p.url ? `<a class="btn small ghost" href="${esc(p.url)}" target="_blank" rel="noopener">${t('source')}</a>` : '',
-    p.pdf ? `<a class="btn small ghost" href="${esc(p.pdf)}" target="_blank" rel="noopener">${t('pdf')}</a>` : '',
+    ...actions.map((a) => `<a class="btn small" href="${esc(a.href)}">${a.icon ? icon(a.icon) : ''}${esc(a.label)}</a>`),
+    p.url ? `<a class="btn small ghost" href="${esc(p.url)}" target="_blank" rel="noopener">${icon('external')}${t('source')}</a>` : '',
+    p.pdf ? `<a class="btn small ghost" href="${esc(p.pdf)}" target="_blank" rel="noopener">${icon('doc')}${t('pdf')}</a>` : '',
   ].join('');
   return `<article class="paper-card">
     <h3>${esc(p.title)}</h3>

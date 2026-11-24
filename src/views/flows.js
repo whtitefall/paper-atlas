@@ -5,6 +5,7 @@ import * as d3 from 'd3';
 import { loadIndex, loadDatasets, loadKeywords, loadNeighbors, selection, seedRef } from '../data.js';
 import { esc, status, clearStatus, tip, hideTip, tipHtml, paperCard, setParams, venueYear } from '../ui.js';
 import { t, getLang } from '../i18n.js';
+import { icon } from '../icons.js';
 import { VENUES, VENUE_MONTH, ARXIV } from '../venues.js';
 
 const PALETTE = ['#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#76b7b2', '#b07aa1', '#edc948', '#9c755f'];
@@ -26,7 +27,7 @@ export function mount(root, params) {
         <div class="row"><label>${t('yearFrom')} <select name="from" id="f-from"></select></label><label>${t('yearTo')} <select name="to" id="f-to"></select></label></div>
         <label>${t('flows.max')} <select name="n">${SIZES.map((n) => `<option value="${n}" ${String(n) === p('n', '600') ? 'selected' : ''}>${t('flows.nPapers', { n })}</option>`).join('')}</select></label>
         <div class="muted small" id="f-scope"></div>
-        <button type="submit">${t('flows.run')}</button>
+        <button type="submit">${icon('flows')}${t('flows.run')}</button>
       </form>
       <div id="f-side" hidden>
         <hr />
@@ -296,7 +297,7 @@ export function mount(root, params) {
       const li = ({ i: o, s }) => `<li><a href="javascript:void 0" data-i="${o}">${esc(M[o].title)}</a> <span class="muted small">${esc(venueYear(M[o]))} · ${esc(laneName(D.lane[o]))} · ${s.toFixed(2)}</span></li>`;
       const spread = d3.rollups([...des], (v) => v.length, (o) => D.lane[o]).sort((a, b) => b[1] - a[1]);
       const none = `<li class="muted">${t('none')}</li>`;
-      detail.innerHTML = paperCard(q, [{ label: t('map.toGraph'), href: `#/graph?seed=${encodeURIComponent(seedRef(q))}` }])
+      detail.innerHTML = paperCard(q, [{ label: t('map.toGraph'), icon: 'graph', href: `#/graph?seed=${encodeURIComponent(seedRef(q))}` }])
         + `<p class="small">${t('flows.lineage', { a: anc.size, b: des.size })}</p>`
         + (spread.length ? `<p class="small muted">${esc(t('flows.spread', { list: spread.map(([l, n]) => `${laneName(l)} ${n}`).join(t('sep')) }))}</p>` : '')
         + `<h4>${t('flows.directUp')}</h4><ol class="list">${D.up[i].map(li).join('') || none}</ol>`

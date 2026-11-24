@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import { loadIndex, loadDatasets, loadAbstracts, neighborsOf, paperAt, selection, defaultKeys, newestArxivKeys, seedRef } from '../data.js';
 import { esc, status, clearStatus, tip, hideTip, tipHtml, paperCard, debounce, setParams, venueYear } from '../ui.js';
 import { t } from '../i18n.js';
+import { icon } from '../icons.js';
 import { VENUES, ARXIV } from '../venues.js';
 
 const PALETTE = ['#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#76b7b2', '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#86bcb6', '#d37295', '#a0cbe8', '#8cd17d', '#fabfd2', '#79706e', '#b6992d'];
@@ -37,7 +38,7 @@ export function mount(root, params) {
         </fieldset>
         <div class="row"><label>${t('yearFrom')} <select name="from" id="m-from"></select></label><label>${t('yearTo')} <select name="to" id="m-to"></select></label></div>
         <div class="muted small" id="m-sel"></div>
-        <button type="submit">${t('map.run')}</button>
+        <button type="submit">${icon('map')}${t('map.run')}</button>
       </form>
       <hr />
       <div class="stack" id="m-tools" hidden>
@@ -240,7 +241,7 @@ export function mount(root, params) {
   async function select(p) {
     selectedPaper = byGi.get(p.gi) ?? null;
     draw();
-    detail.innerHTML = paperCard(p, [{ label: t('map.toGraph'), href: `#/graph?seed=${encodeURIComponent(seedRef(p))}` }]) + `<h4>${t('map.nearest')}</h4><ol class="list" id="m-nn"></ol>`;
+    detail.innerHTML = paperCard(p, [{ label: t('map.toGraph'), icon: 'graph', href: `#/graph?seed=${encodeURIComponent(seedRef(p))}` }]) + `<h4>${t('map.nearest')}</h4><ol class="list" id="m-nn"></ol>`;
     try {
       const nn = await neighborsOf(p);
       const near = await Promise.all(nn.slice(0, 10).map(async ({ gi, sim }) => ({ q: await paperAt(gi), sim })));

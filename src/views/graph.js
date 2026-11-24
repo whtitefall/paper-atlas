@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import { loadIndex, loadDatasets, loadDataset, neighborsOf, paperAt, selection, defaultKeys, matcher, seedRef } from '../data.js';
 import { esc, status, clearStatus, tip, hideTip, tipHtml, paperCard, authorsLine, setParams, venueYear, shortLabel } from '../ui.js';
 import { t } from '../i18n.js';
+import { icon } from '../icons.js';
 
 const FIRST_HOP = 20;
 const MAX_NODES = 36;
@@ -17,7 +18,7 @@ export function mount(root, params) {
         <p class="muted small">${t('graph.desc')}</p>
         <label>${t('graph.seed')} <input name="q" placeholder="${esc(t('graph.seedPh'))}" /></label>
         <div class="muted small" id="g-scope"></div>
-        <button type="submit">${t('search')}</button>
+        <button type="submit">${icon('search')}${t('search')}</button>
       </form>
       <ol class="list results" id="g-results"></ol>
       <div id="g-lists" hidden>
@@ -195,7 +196,7 @@ export function mount(root, params) {
   }
 
   function showDetail(n) {
-    detail.innerHTML = paperCard(n.p, n.hop === 0 ? [] : [{ label: t('graph.useAsSeed'), href: `#/graph?seed=${encodeURIComponent(seedRef(n.p))}` }])
+    detail.innerHTML = paperCard(n.p, n.hop === 0 ? [] : [{ label: t('graph.useAsSeed'), icon: 'target', href: `#/graph?seed=${encodeURIComponent(seedRef(n.p))}` }])
       + (n.hop === 0 ? `<p class="muted small">${t('graph.isSeed')}</p>` : `<p class="muted small">${t('graph.simToSeed', { s: n.sim.toFixed(3) })}</p>`)
       + `<h4>${t('graph.all')}</h4><ol class="list">${graph.nodes.slice(1).map(item).join('')}</ol>`;
   }
