@@ -1,6 +1,7 @@
 import { route } from './ui.js';
 import { applyStatic, getLang, setLang, t } from './i18n.js';
 import { loadIndex } from './data.js';
+import { applyIcons } from './icons.js';
 import * as mapView from './views/map.js';
 import * as graphView from './views/graph.js';
 import * as flowsView from './views/flows.js';
@@ -22,6 +23,7 @@ function render(force = false) {
 }
 
 window.addEventListener('hashchange', () => render());
+applyIcons();
 
 // "Data updated <date> · <n> papers", from the atlas index
 const info = document.getElementById('data-info');

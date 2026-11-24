@@ -21,8 +21,8 @@ const S = {
   'other': ['其他', 'Other'],
   'noAbstract': ['（无摘要）', '(no abstract)'],
   'loadingAbstract': ['正在加载摘要…', 'Loading abstract…'],
-  'source': ['原文 ↗', 'Paper ↗'],
-  'pdf': ['PDF ↗', 'PDF ↗'],
+  'source': ['原文', 'Paper'],
+  'pdf': ['PDF', 'PDF'],
   'sep': ['，', ', '],
   'err.noData': ['还没有数据。先运行抓取脚本和 scripts/build_atlas.py 生成数据（见 README）。', 'No data yet. Run the fetchers and scripts/build_atlas.py first (see the README).'],
   'err.load': ['数据加载失败：{msg}', 'Could not load data: {msg}'],
@@ -66,7 +66,7 @@ const S = {
   'map.count': ['共 {n} 篇', '{n} papers'],
   'map.match': ['匹配 {m} / {n} 篇', '{m} of {n} papers match'],
   'map.nearest': ['语义最相近的论文', 'Most similar papers'],
-  'map.toGraph': ['相关论文图 →', 'Related papers →'],
+  'map.toGraph': ['相关论文图', 'Related papers'],
 
   // graph
   'graph.title': ['相关论文图', 'Related papers'],
@@ -80,7 +80,7 @@ const S = {
   'graph.hint': ['节点越大越接近种子 · 颜色 = 年份 · 连线越粗越相似', 'Bigger node = closer to the seed · colour = year · thicker link = more similar'],
   'graph.detailEmpty': ['点击节点查看详情。', 'Click a node to see its details.'],
   'graph.simToSeed': ['与种子相似度 {s}', 'Similarity to seed: {s}'],
-  'graph.useAsSeed': ['以此为种子 →', 'Use as seed →'],
+  'graph.useAsSeed': ['以此为种子', 'Use as seed'],
   'graph.isSeed': ['这是种子论文。', 'This is the seed paper.'],
   'graph.all': ['图中全部论文（按相似度）', 'All papers in the graph (by similarity)'],
 
