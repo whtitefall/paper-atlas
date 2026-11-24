@@ -11,6 +11,12 @@ from common import paper, log, listing_max_age
 
 YEARS = {"ijcai": [2023, 2024, 2025, 2026]}
 BASE = "https://ijcai.org/proceedings/{year}/"
+MAIN_AREAS = {
+    "agent-based and multi-agent systems", "computer vision", "constraint satisfaction and optimization",
+    "data mining", "game theory and economic paradigms", "humans and ai", "knowledge representation and reasoning",
+    "machine learning", "multidisciplinary topics and applications", "natural language processing",
+    "planning and scheduling", "robotics", "search", "uncertainty in ai",
+}
 
 
 def fetch(http, venue, year):
@@ -20,18 +26,21 @@ def fetch(http, venue, year):
         log(f"  ijcai {year}: proceedings page not found, skipped")
         return None
     soup = BeautifulSoup(html, "html.parser")
-    main = None
+    # Main-track areas normally sit inside the "Main Track" section, but on some years' pages the
+    # last areas (e.g. "Search", "Uncertainty in AI" in 2026) render as top-level sections.
+    main_sections = []
     for sec in soup.select("div.section"):
         t = sec.select_one(".section_title")
-        if t and t.get_text(strip=True).lower() == "main track":
-            main = sec
-            break
+        title = t.get_text(strip=True).lower() if t else ""
+        if title == "main track" or (main_sections and title in MAIN_AREAS):
+            main_sections.append(sec)
+    main = main_sections[0] if main_sections else None
     if main is None:
         http.forget(base)
         log(f"  ijcai {year}: no 'Main Track' section found, skipped")
         return None
     nums = []
-    for a in main.select("a.title, .paper_wrapper a[href]"):
+    for a in [a for sec in main_sections for a in sec.select("a.title, .paper_wrapper a[href]")]:
         m = re.search(rf"/proceedings/{year}/(\d+)/?$", a.get("href", ""))
         if m and m.group(1) not in nums:
             nums.append(m.group(1))
